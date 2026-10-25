@@ -264,18 +264,30 @@
       changed_when: true
 
     # Only root can put a raw PCI address in a VM config; a cluster resource
-    # mapping is the non-root path. The map names the whole slot (both
-    # functions) and pins the vendor:device id and the IOMMU group - VM start
-    # validates the mapping against the live hardware and refuses on any
-    # mismatch (and on a missing iommugroup), so a hardware reshuffle fails
-    # loudly instead of passing the wrong card
+    # mapping is the non-root path. VM start validates the mapping against
+    # the live hardware and refuses on any mismatch or missing property
+    # (iommugroup and subsystem-id included), so the map entry is built from
+    # PVE's own view of the device rather than a hand-kept list - the same
+    # source the GUI uses. network.conf's GPU_PCI_IDS stays the cross-check
+    # that the slot still holds the card this lab expects.
     - name: GPU mapping
       when: lab.gpu_worker | bool
+      vars:
+        gpu_hw: "{{ hw_pci.stdout | from_json | selectattr('id', 'equalto', lab_net.gpu_pci_address ~ '.0') | first }}"
       block:
-        - name: Read the GPU's IOMMU group
-          ansible.builtin.command: readlink /sys/bus/pci/devices/{{ lab_net.gpu_pci_address }}.0/iommu_group
-          register: iommu_group
+        - name: Read PVE's view of the GPU
+          ansible.builtin.command: pvesh get /nodes/{{ lab.node_name }}/hardware/pci --output-format json
+          register: hw_pci
           changed_when: false
+
+        - name: Check the slot holds the expected card
+          ansible.builtin.assert:
+            that: gpu_hw.vendor ~ ':' ~ gpu_hw.device == '0x' ~ (lab_net.gpu_pci_ids.split(',') | first | replace(':', ':0x'))
+            fail_msg: >-
+              {{ lab_net.gpu_pci_address }} holds {{ gpu_hw.vendor }}:{{ gpu_hw.device }}
+              ({{ gpu_hw.device_name | default('?') }}), not GPU_PCI_IDS
+              {{ lab_net.gpu_pci_ids }} from network.conf - the hardware moved
+            quiet: true
 
         - name: Look up the GPU mapping
           ansible.builtin.command: pvesh get /cluster/mapping/pci/{{ lab_net.gpu_mapping }} --output-format json
@@ -295,8 +307,9 @@
             wanted_pairs:
               - node={{ lab.node_name }}
               - path={{ lab_net.gpu_pci_address }}
-              - id={{ lab_net.gpu_pci_ids.split(',') | first }}
-              - iommugroup={{ iommu_group.stdout | basename }}
+              - id={{ gpu_hw.vendor | replace('0x', '') }}:{{ gpu_hw.device | replace('0x', '') }}
+              - subsystem-id={{ gpu_hw.subsystem_vendor | replace('0x', '') }}:{{ gpu_hw.subsystem_device | replace('0x', '') }}
+              - iommugroup={{ gpu_hw.iommugroup }}
             wanted: "{{ dict(wanted_pairs | map('split', '=', 1)) }}"
             current: |-
               {{ dict(((mapping_get.stdout if mapping_get.rc == 0 else '{}') | from_json).map | default(['']) | first | split(',') | select() | map('split', '=', 1))
