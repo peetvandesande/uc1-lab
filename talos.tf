@@ -152,6 +152,7 @@ data "talos_client_configuration" "this" {
   cluster_name         = var.cluster_name
   client_configuration = talos_machine_secrets.this.client_configuration
   endpoints            = [for name, node in local.nodes : local.node_ip[name] if node.role == "controlplane"]
+  nodes                = [for name, node in local.nodes : local.node_ip[name]]
 }
 
 resource "talos_cluster_kubeconfig" "this" {

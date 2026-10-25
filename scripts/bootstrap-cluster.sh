@@ -22,9 +22,15 @@ cilium_version=$(sed -n 's/^      version: //p' "$repo/modules/10-cilium/release
 
 say() { printf '\n== %s\n' "$*"; }
 
+# Node lists from the tofu state - health wants told who is what
+cp_nodes=$(cd "$repo" && tofu output -json nodes | jq -r '[.[] | select(.role == "controlplane").ip] | join(",")')
+worker_nodes=$(cd "$repo" && tofu output -json nodes | jq -r '[.[] | select(.role == "worker").ip] | join(",")')
+
 say "Waiting for Talos to report healthy (this includes etcd quorum)"
 # Nodes stay NotReady until the CNI exists; that is expected and excluded
-talosctl health --server=false
+talosctl health --server=false \
+  --control-plane-nodes "$cp_nodes" \
+  --worker-nodes "$worker_nodes"
 
 say "Installing Cilium $cilium_version (skipped if present)"
 if ! helm status cilium -n kube-system >/dev/null 2>&1; then
