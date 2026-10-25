@@ -36,7 +36,7 @@ cp_nodes=$(cd "$repo" && tofu output -json nodes 2>/dev/null | jq -r '[.[] | sel
 worker_nodes=$(cd "$repo" && tofu output -json nodes 2>/dev/null | jq -r '[.[] | select(.role == "worker").ip] | join(",")')
 
 echo "-- cluster"
-check "talos is healthy"                talosctl health --server=false --control-plane-nodes "$cp_nodes" --worker-nodes "$worker_nodes"
+check "talos is healthy"                talosctl -n "${cp_nodes%%,*}" health --server=false --control-plane-nodes "$cp_nodes" --worker-nodes "$worker_nodes"
 check "every node is Ready"             kubectl wait node --all --for=condition=Ready --timeout=30s
 check "the API answers on the VIP"      kubectl --request-timeout=10s version
 

@@ -25,12 +25,17 @@ say() { printf '\n== %s\n' "$*"; }
 # Node lists from the tofu state - health wants told who is what
 cp_nodes=$(cd "$repo" && tofu output -json nodes | jq -r '[.[] | select(.role == "controlplane").ip] | join(",")')
 worker_nodes=$(cd "$repo" && tofu output -json nodes | jq -r '[.[] | select(.role == "worker").ip] | join(",")')
+node_count=$(cd "$repo" && tofu output -json nodes | jq 'length')
 
-say "Waiting for Talos to report healthy (this includes etcd quorum)"
-# Nodes stay NotReady until the CNI exists; that is expected and excluded
-talosctl health --server=false \
-  --control-plane-nodes "$cp_nodes" \
-  --worker-nodes "$worker_nodes"
+# Full talosctl health includes "all k8s nodes ready", which cannot pass
+# before the CNI exists - so before Cilium, wait only for the API to answer
+# on the VIP and every node to have registered
+say "Waiting for the API on the VIP and $node_count registered nodes"
+until [ "$(kubectl get nodes --no-headers 2>/dev/null | wc -l)" -eq "$node_count" ]; do
+  printf '.'
+  sleep 5
+done
+echo
 
 say "Installing Cilium $cilium_version (skipped if present)"
 if ! helm status cilium -n kube-system >/dev/null 2>&1; then
@@ -44,6 +49,11 @@ fi
 
 say "Waiting for the nodes to go Ready"
 kubectl wait node --all --for=condition=Ready --timeout=10m
+
+say "Full Talos health check"
+talosctl -n "${cp_nodes%%,*}" health --server=false \
+  --control-plane-nodes "$cp_nodes" \
+  --worker-nodes "$worker_nodes"
 
 say "Bootstrapping Flux onto github.com/$github_owner/$github_repo"
 if [ -z "${GITHUB_TOKEN:-}" ]; then
