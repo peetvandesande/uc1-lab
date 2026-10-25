@@ -6,6 +6,4 @@ resources:
   - kube-prometheus-stack.yaml
   - loki.yaml
   - alloy.yaml
-  - alert-rules.yaml
-  - podmonitor-flux.yaml
   - dashboards/vllm.yaml

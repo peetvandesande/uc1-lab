@@ -16,5 +16,6 @@ spec:
   wait: true
   dependsOn:
     - name: 16-ingress
+    - name: 35-keda
     - name: 20-observability
     - name: 30-gpu

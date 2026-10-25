@@ -2,3 +2,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: monitoring
+  labels:
+    # node-exporter mounts the host filesystem and joins the host network;
+    # Talos' cluster-wide baseline default would refuse it
+    pod-security.kubernetes.io/enforce: privileged

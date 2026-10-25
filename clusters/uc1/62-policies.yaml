@@ -1,0 +1,18 @@
+# The Kyverno ClusterPolicies - CRD consumers, split from the Kyverno chart
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: 62-policies
+  namespace: flux-system
+spec:
+  interval: 10m
+  retryInterval: 1m
+  timeout: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./modules/62-policies
+  prune: true
+  wait: true
+  dependsOn:
+    - name: 60-policy

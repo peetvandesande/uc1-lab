@@ -1,0 +1,8 @@
+# PrometheusRules and PodMonitors live apart from the chart that installs
+# their CRDs: a Flux Kustomization dry-runs as a unit, so these cannot
+# share one with kube-prometheus-stack. dependsOn 20-observability.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - alert-rules.yaml
+  - podmonitor-flux.yaml

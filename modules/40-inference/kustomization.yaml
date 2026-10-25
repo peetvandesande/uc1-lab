@@ -6,5 +6,4 @@ resources:
   - ollama.yaml
   - mock-nim.yaml
   - ingress.yaml
-  - keda.yaml
   - scaledobject.yaml

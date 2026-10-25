@@ -1,0 +1,6 @@
+# ClusterPolicies apart from the Kyverno chart, for the same dry-run
+# reason as 17-issuers and 22-monitoring-config. dependsOn 60-policy.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - policies.yaml

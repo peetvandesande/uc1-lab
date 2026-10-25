@@ -16,3 +16,14 @@ patches:
         path: /metadata/annotations
         value:
           storageclass.kubernetes.io/is-default-class: "true"
+  # Talos defaults PodSecurity to baseline cluster-wide; the provisioner's
+  # helper pods mount hostPath (that is the whole product), so its
+  # namespace must say so
+  - target:
+      kind: Namespace
+      name: local-path-storage
+    patch: |
+      - op: add
+        path: /metadata/labels
+        value:
+          pod-security.kubernetes.io/enforce: privileged
