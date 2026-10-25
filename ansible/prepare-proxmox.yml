@@ -12,6 +12,9 @@
 # Usage (from the repository root):
 #   ansible-playbook ansible/prepare-proxmox.yml [-e proxmox_target=user@host]
 #   Skip the GPU part with -e gpu=false (then build with gpu_worker=false).
+#   Module configuration that conflicts with the passthrough (another file
+#   setting vfio-pci ids, or an nvidia/nouveau force-load) makes the play
+#   fail by name; -e cleanup_conflicts=true removes those files instead.
 
 - name: Read the lab settings
   hosts: localhost
@@ -28,6 +31,7 @@
   gather_facts: false
   vars:
     gpu: true
+    cleanup_conflicts: false
     gpu_dev: "{{ lab_net.gpu_pci_address }}.0"
   tasks:
     # SDN only enables forwarding on its own vnets; traffic from the LAN
@@ -53,6 +57,45 @@
           ansible.builtin.assert:
             that: gpu_state.stdout_lines | select('search', 'NVIDIA') | list | length > 0
             fail_msg: "no NVIDIA device at {{ lab_net.gpu_pci_address }} – fix GPU_PCI_ADDRESS in network.conf"
+            quiet: true
+
+        # Anything else that configures these modules can silently win:
+        # kmod applies every modprobe.d file and the kernel keeps the LAST
+        # ids= assignment, and a force-loaded nvidia_uvm pulls nvidia in
+        # past any blacklist. Found on lenora the first time round: a
+        # leftover vfio.conf with a typo'd vendor id, and the jellyfin-era
+        # modules-load.d/nvidia.conf
+        - name: Look for conflicting module configuration
+          ansible.builtin.shell: |
+            grep -lE '^[[:space:]]*options[[:space:]]+vfio[-_]pci\b' /etc/modprobe.d/* 2>/dev/null | grep -v '/uc1-vfio.conf$' || true
+            grep -lE '^[[:space:]]*(nvidia|nouveau)' /etc/modules-load.d/* 2>/dev/null || true
+            grep -qE '^[[:space:]]*(nvidia|nouveau)' /etc/modules 2>/dev/null && echo /etc/modules || true
+          register: conflicts
+          changed_when: false
+
+        - name: Remove the conflicting files
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: absent
+          loop: "{{ conflicts.stdout_lines | reject('equalto', '/etc/modules') | list }}"
+          when: cleanup_conflicts | bool
+          register: conflicts_removed
+
+        - name: Check nothing conflicts
+          ansible.builtin.assert:
+            that: cleanup_conflicts | bool or conflicts.stdout | length == 0
+            fail_msg: >-
+              these files also configure vfio-pci or force-load the GPU
+              drivers and would defeat the passthrough:
+              {{ conflicts.stdout_lines | join(', ') }} –
+              re-run with -e cleanup_conflicts=true to remove them
+              (/etc/modules is never removed: edit it by hand)
+            quiet: true
+
+        - name: Check /etc/modules by hand
+          ansible.builtin.assert:
+            that: "'/etc/modules' not in conflicts.stdout_lines"
+            fail_msg: /etc/modules force-loads nvidia or nouveau – remove those lines by hand (the file may hold unrelated modules)
             quiet: true
 
         # The host must not load a display driver for the card; vfio-pci has
@@ -98,7 +141,7 @@
           loop:
             - update-initramfs -u -k all
             - proxmox-boot-tool refresh
-          when: modprobe_conf is changed or modules_conf is changed or cmdline_conf is changed
+          when: modprobe_conf is changed or modules_conf is changed or cmdline_conf is changed or conflicts_removed is changed
           changed_when: true
 
         - name: Report

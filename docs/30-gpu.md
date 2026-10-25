@@ -32,6 +32,29 @@ requires newer still, plus an NGC licence. So: vLLM runs its CPU backend
 against the mock. The *operational* work - scheduling, taints, runtime
 class, driver lifecycle, DCGM, capacity - is identical with a bigger card.
 
+## If nvidia still holds the card after a reboot
+
+Two mechanisms defeat the binding silently, both met on lenora's first
+attempt:
+
+- **Duplicate `options vfio-pci` lines.** kmod applies *every* modprobe.d
+  file, and the kernel keeps the **last** `ids=` assignment, in file-name
+  order - a forgotten `vfio.conf` (sorting after `uc1-vfio.conf`) with a
+  typo'd vendor id meant vfio-pci registered ids that matched nothing.
+  The tell in dmesg: `vfio_pci: add [00de:1c31...]` - wrong vendor.
+- **Force-loaded driver modules.** `blacklist nvidia` does not stop
+  dependency loading: a `modules-load.d` entry for `nvidia_uvm` pulls
+  `nvidia` in regardless, and it binds whatever vfio-pci failed to claim.
+
+`prepare-proxmox.yml` now detects both and removes the offending files
+with `-e cleanup_conflicts=true` (never `/etc/modules`, which it asks you
+to edit by hand). Check the result after the next reboot:
+
+```sh
+lspci -nnk -s 86:00          # Kernel driver in use: vfio-pci, both functions
+dmesg | grep vfio_pci:       # add [10de:1c31... - the right vendor
+```
+
 ## Giving the GPU back to the host
 
 Reverse of prepare-proxmox.yml: `tofu apply -var gpu_worker=false` (or
