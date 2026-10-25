@@ -1,0 +1,6 @@
+pm_endpoint = "https://lenora.home:8006/"
+node_name   = "lenora"
+
+# Everything else has a sensible default in variables.tf. To build without
+# the GPU (vfio not set up yet), set:
+# gpu_worker = false

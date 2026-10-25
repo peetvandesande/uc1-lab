@@ -1,0 +1,113 @@
+# One-time preparation of a Proxmox host for this lab. Safe to re-run.
+# ansible/teardown.yml leaves it all in place.
+#
+#   - turns on IPv4 forwarding, so the host routes between the LAN and the lab
+#   - binds the GPU (GPU_PCI_* in network.conf) to vfio-pci and enables the
+#     IOMMU, so OpenTofu can pass it through to worker-1. This takes the GPU
+#     away from the host - make sure nothing on it (a container, a desktop)
+#     still uses the card - and needs one reboot, which the playbook asks for
+#     rather than performs. Reverting is deleting the two uc1-vfio files,
+#     removing the cmdline additions and rebooting.
+#
+# Usage (from the repository root):
+#   ansible-playbook ansible/prepare-proxmox.yml [-e proxmox_target=user@host]
+#   Skip the GPU part with -e gpu=false (then build with gpu_worker=false).
+
+- name: Read the lab settings
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    repo: "{{ playbook_dir }}/.."
+    proxmox_target: ""
+  tasks:
+    - ansible.builtin.import_tasks: tasks/target.yml
+
+- name: Prepare Proxmox
+  hosts: proxmox
+  gather_facts: false
+  vars:
+    gpu: true
+    gpu_dev: "{{ lab_net.gpu_pci_address }}.0"
+  tasks:
+    # SDN only enables forwarding on its own vnets; traffic from the LAN
+    # arrives on the host's main bridge
+    - name: Turn on IPv4 forwarding
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: "1"
+        sysctl_file: /etc/sysctl.d/90-ip-forward.conf
+
+    - name: Bind the GPU to vfio-pci
+      when: gpu | bool
+      block:
+        - name: Look at the GPU
+          ansible.builtin.shell: |
+            lspci -nn -s {{ lab_net.gpu_pci_address }}
+            echo "driver=$(basename $(readlink /sys/bus/pci/devices/{{ gpu_dev }}/driver) 2>/dev/null || echo none)"
+            echo "iommu=$(ls /sys/class/iommu/ 2>/dev/null | wc -l)"
+          register: gpu_state
+          changed_when: false
+
+        - name: Check the GPU is where network.conf says
+          ansible.builtin.assert:
+            that: gpu_state.stdout_lines | select('search', 'NVIDIA') | list | length > 0
+            fail_msg: "no NVIDIA device at {{ lab_net.gpu_pci_address }} – fix GPU_PCI_ADDRESS in network.conf"
+            quiet: true
+
+        # The host must not load a display driver for the card; vfio-pci has
+        # to claim it first. softdep orders that without blacklisting, so a
+        # revert is deleting these files
+        - name: Claim the GPU for vfio-pci at boot
+          ansible.builtin.copy:
+            dest: /etc/modprobe.d/uc1-vfio.conf
+            content: |
+              # uc1-lab: the P2200 is passed through to a VM
+              options vfio-pci ids={{ lab_net.gpu_pci_ids }}
+              softdep nouveau pre: vfio-pci
+              softdep nvidia pre: vfio-pci
+              softdep snd_hda_intel pre: vfio-pci
+            mode: "0644"
+          register: modprobe_conf
+
+        - name: Load the vfio modules at boot
+          ansible.builtin.copy:
+            dest: /etc/modules-load.d/uc1-vfio.conf
+            content: |
+              vfio
+              vfio_iommu_type1
+              vfio_pci
+            mode: "0644"
+          register: modules_conf
+
+        - name: Read the kernel command line
+          ansible.builtin.slurp:
+            src: /etc/kernel/cmdline
+          register: cmdline
+
+        - name: Enable the IOMMU on the kernel command line
+          ansible.builtin.copy:
+            dest: /etc/kernel/cmdline
+            content: "{{ cmdline.content | b64decode | trim }} intel_iommu=on iommu=pt\n"
+            mode: "0644"
+          when: "'intel_iommu=on' not in (cmdline.content | b64decode)"
+          register: cmdline_conf
+
+        - name: Apply the boot configuration
+          ansible.builtin.command: "{{ item }}"
+          loop:
+            - update-initramfs -u -k all
+            - proxmox-boot-tool refresh
+          when: modprobe_conf is changed or modules_conf is changed or cmdline_conf is changed
+          changed_when: true
+
+        - name: Report
+          ansible.builtin.debug:
+            msg: >-
+              {{ 'GPU already on vfio-pci with the IOMMU up – nothing to do.'
+                 if 'driver=vfio-pci' in gpu_state.stdout_lines and not (gpu_state.stdout_lines | select('equalto', 'iommu=0') | list | length > 0)
+                 else 'Configured. Reboot the host (checking nothing critical runs on it first), then re-run this playbook to confirm the GPU is on vfio-pci.' }}
+
+    - name: Done
+      ansible.builtin.debug:
+        msg: "Next: ansible-playbook ansible/bootstrap.yml"

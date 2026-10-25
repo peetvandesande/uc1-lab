@@ -1,0 +1,64 @@
+# Registers the lab's names in PowerDNS (dns_state: present) or removes them
+# (dns_state: absent). Runs on the Proxmox host, which may reach the API;
+# needs lab, lab_net and pdns_api_key. One forward zone (DOMAIN) and the
+# node network's reverse zone, owned by the lab: records in them that the
+# lab no longer wants are deleted.
+#
+# Names:
+#   <cluster>-cp-<n>.DOMAIN      control planes (+ PTR)
+#   <cluster>-worker-<n>.DOMAIN  workers (+ PTR)
+#   api.DOMAIN                   the kube-apiserver VIP (+ PTR)
+#   ingress.DOMAIN               ingress-nginx, first LoadBalancer address
+#   registry.DOMAIN              the in-cluster registry, second address
+#   grafana/prometheus/alertmanager/hubble/llm.DOMAIN -> ingress.DOMAIN
+- name: Check the network is a /24
+  ansible.builtin.assert:
+    that: lab_net.node_subnet.endswith('/24')
+    fail_msg: NODE_SUBNET must be a /24 for the reverse zone
+    quiet: true
+
+- name: Work out the records
+  ansible.builtin.set_fact:
+    dns_zones: "{{ zones | from_yaml }}"
+  vars:
+    domain: "{{ lab_net.domain }}."
+    net: "{{ lab_net.node_subnet.split('/')[0].rsplit('.', 1)[0] }}"
+    rev: "{{ net.split('.') | reverse | join('.') }}.in-addr.arpa."
+    cp_first: "{{ lab_net.cp_host_start | int }}"
+    wk_first: "{{ lab_net.worker_host_start | int }}"
+    vip: "{{ lab_net.vip_host | int }}"
+    ingress: "{{ lab_net.lb_pool_start }}"
+    registry: "{{ lab_net.lb_pool_start.rsplit('.', 1)[0] }}.{{ lab_net.lb_pool_start.rsplit('.', 1)[1] | int + 1 }}"
+    cps: "{{ range(lab.cp_count | int) | list }}"
+    workers: "{{ range(lab.worker_count | int) | list }}"
+    zones: |
+      - name: "{{ domain }}"
+        rrsets:
+      {% for i in cps %}
+          - { name: "{{ lab.cluster_name }}-cp-{{ i + 1 }}.{{ domain }}", type: A, records: ["{{ net }}.{{ cp_first | int + i }}"] }
+      {% endfor %}
+      {% for i in workers %}
+          - { name: "{{ lab.cluster_name }}-worker-{{ i + 1 }}.{{ domain }}", type: A, records: ["{{ net }}.{{ wk_first | int + i }}"] }
+      {% endfor %}
+          - { name: "api.{{ domain }}", type: A, records: ["{{ net }}.{{ vip }}"] }
+          - { name: "ingress.{{ domain }}", type: A, records: ["{{ ingress }}"] }
+          - { name: "registry.{{ domain }}", type: A, records: ["{{ registry }}"] }
+      {% for svc in ['grafana', 'prometheus', 'alertmanager', 'hubble', 'llm'] %}
+          - { name: "{{ svc }}.{{ domain }}", type: CNAME, records: ["ingress.{{ domain }}"] }
+      {% endfor %}
+      - name: "{{ rev }}"
+        rrsets:
+      {% for i in cps %}
+          - { name: "{{ cp_first | int + i }}.{{ rev }}", type: PTR, records: ["{{ lab.cluster_name }}-cp-{{ i + 1 }}.{{ domain }}"] }
+      {% endfor %}
+      {% for i in workers %}
+          - { name: "{{ wk_first | int + i }}.{{ rev }}", type: PTR, records: ["{{ lab.cluster_name }}-worker-{{ i + 1 }}.{{ domain }}"] }
+      {% endfor %}
+          - { name: "{{ vip }}.{{ rev }}", type: PTR, records: ["api.{{ domain }}"] }
+
+- name: Update the zones
+  ansible.builtin.include_tasks: dns-zone.yml
+  loop: "{{ dns_zones }}"
+  loop_control:
+    loop_var: zone
+    label: "{{ zone.name }}"
