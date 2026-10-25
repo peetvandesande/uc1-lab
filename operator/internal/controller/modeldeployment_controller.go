@@ -245,6 +245,20 @@ func (r *ModelDeploymentReconciler) container(md *servingv1alpha1.ModelDeploymen
 		c.Image = envOr("UC1_MOCK_IMAGE", defaultMockImage)
 		c.Command = []string{"python", "-c", mockServer}
 		c.Env = []corev1.EnvVar{{Name: "MODEL", Value: md.Spec.Model}}
+		// The platform's own policy (60: require-resource-requests)
+		// rejects a container without requests - the operator must hold
+		// itself to the contract it deploys into
+		if md.Spec.Resources == nil {
+			c.Resources = corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("50m"),
+					corev1.ResourceMemory: resource.MustParse("64Mi"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("128Mi"),
+				},
+			}
+		}
 	default: // vllm
 		maxLen := int32(2048)
 		if md.Spec.MaxModelLen != nil {

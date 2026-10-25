@@ -1,5 +1,5 @@
 # Image URL to use all building/pushing image targets
-IMG ?= registry.uc1.home/uc1-operator:v0.1.0
+IMG ?= registry.uc1.home/uc1-operator:v0.1.1
 # The lab's nodes are amd64; the workstation is not. Cross-compiled in the
 # builder stage, so no emulation is involved.
 TARGET_PLATFORM ?= linux/amd64
