@@ -19,11 +19,14 @@ check() { # check <description> <command...>
   fi
 }
 
-prom() { # prom <description> <query> - the query must return a value > 0
+prom() { # prom <description> <query> - the query must return a value > 0.
+  # Through the ingress on purpose: the Prometheus image has no shell
+  # utilities to exec, and this way a passing check vouches for the whole
+  # path (DNS, LB, ingress, certificate, Prometheus)
   local desc="$1" query="$2" result
-  result=$(kubectl -n monitoring exec sts/prometheus-kube-prometheus-stack-prometheus -c prometheus -- \
-    wget -qO- "http://127.0.0.1:9090/api/v1/query?query=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$query")" \
-    2>/dev/null | python3 -c 'import json,sys; r=json.load(sys.stdin)["data"]["result"]; print(r[0]["value"][1] if r else "")' 2>/dev/null)
+  result=$(curl -skG -m 15 https://prometheus.uc1.home/api/v1/query \
+    --data-urlencode "query=$query" 2>/dev/null \
+    | jq -r '.data.result[0].value[1] // empty' 2>/dev/null)
   if [ -n "$result" ] && [ "$result" != "0" ]; then
     printf 'ok   %s (=%s)\n' "$desc" "$result"
   else
@@ -55,7 +58,7 @@ prom  "etcd is scraped"                 'count(up{job="kube-etcd"} == 1)'
 prom  "logs are flowing into loki"      'sum(rate(loki_distributor_lines_received_total[5m]))'
 
 echo "-- gpu"
-check "the worker advertises the GPU"   sh -c 'kubectl get node -l uc1.home/gpu=true -o jsonpath="{.items[0].status.allocatable.nvidia\.com/gpu}" | grep -qx 1'
+check "the worker advertises the GPU"   sh -c 'kubectl get nodes -l uc1.home/gpu=true -o json | jq -e ".items[0].status.allocatable[\"nvidia.com/gpu\"] == \"1\"" >/dev/null'
 prom  "DCGM reports the GPU"            'count(DCGM_FI_DEV_GPU_UTIL)'
 
 echo "-- inference"

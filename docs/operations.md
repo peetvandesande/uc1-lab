@@ -314,6 +314,22 @@ Documented here so they cost minutes, not evenings:
   where a 401 belongs often means the IPv6 source address is missing
   from an allow list, not a wrong key.
 - **env.sh is sourced, not executed** - `. scripts/env.sh`.
+- **A Service named like its workload can poison it**: kubelet injects
+  legacy `<NAME>_PORT=tcp://...` service-link variables, and vLLM read
+  `VLLM_PORT` as its own setting. `enableServiceLinks: false` where names
+  collide.
+- **A node may not modify its own taints** (NodeRestriction) - and that
+  one refusal makes Talos's NodeApplyController drop the node *labels*
+  too. Taints belong in kubelet's `registerWithTaints`; they apply at
+  registration, so an already-registered node needs one manual
+  `kubectl taint` or a re-registration.
+- **etcd reads its flags at start only**, and Talos offers no etcd
+  restart via the API - changed `cluster.etcd.extraArgs` take effect at
+  the next (rolling, quorum-gated) control-plane reboot.
+- **hostPath PVs get no fsGroup treatment**: a non-root workload on
+  local-path writes only where the directory mode allows. Prometheus
+  needed `disableMountSubPath` because the operator's subPath directory
+  is created root-owned 0755.
 
 ### When it is truly wedged
 
