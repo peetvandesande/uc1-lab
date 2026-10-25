@@ -1,6 +1,7 @@
-# The lab's own CA: a self-signed root kept in a secret, and a CA issuer the
-# ingresses use. Browsers will not trust it unless uc1-ca.crt (in the
-# uc1-ca secret) is imported; see docs/15-ingress.md.
+# The lab's own CA: a self-signed root kept in a secret. The ingresses now
+# issue from step-ca (see step-ca-issuer.yaml); this issuer remains for
+# certificates ACME cannot do - Hubble's internal SANs are not HTTP-01
+# provable - and as the fallback when pistis is unreachable.
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:

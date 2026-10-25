@@ -41,10 +41,15 @@ say "Installing Cilium $cilium_version (skipped if present)"
 if ! helm status cilium -n kube-system >/dev/null 2>&1; then
   helm repo add cilium https://helm.cilium.io >/dev/null
   helm repo update cilium >/dev/null
+  # hubble.tls.auto.method is certmanagerIssuer in values.yaml, but
+  # cert-manager does not exist yet at this point - install with
+  # Helm-managed certs and let the HelmRelease upgrade to cert-manager
+  # once Flux has put it there (module order: 15 before 10)
   helm install cilium cilium/cilium \
     --version "$cilium_version" \
     --namespace kube-system \
-    -f "$repo/modules/10-cilium/values.yaml"
+    -f "$repo/modules/10-cilium/values.yaml" \
+    --set hubble.tls.auto.method=helm
 fi
 
 say "Waiting for the nodes to go Ready"

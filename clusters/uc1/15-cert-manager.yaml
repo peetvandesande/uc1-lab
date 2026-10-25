@@ -14,5 +14,3 @@ spec:
   path: ./modules/15-cert-manager
   prune: true
   wait: true
-  dependsOn:
-    - name: 10-cilium

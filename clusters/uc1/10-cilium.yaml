@@ -1,4 +1,8 @@
-# Cilium CNI, kube-proxy replacement, LB-IPAM
+# Cilium CNI, kube-proxy replacement, LB-IPAM. Depends on cert-manager:
+# Hubble's certificates are cert-manager Certificates, so the HelmRelease
+# cannot render before the CRDs and the uc1-ca issuer exist. The CNI
+# itself never waits on this - scripts/bootstrap-cluster.sh installs it
+# before Flux runs at all.
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -14,3 +18,5 @@ spec:
   path: ./modules/10-cilium
   prune: true
   wait: true
+  dependsOn:
+    - name: 15-cert-manager

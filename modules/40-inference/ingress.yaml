@@ -6,7 +6,7 @@ metadata:
   name: llm
   namespace: inference
   annotations:
-    cert-manager.io/cluster-issuer: uc1-ca
+    cert-manager.io/cluster-issuer: step-ca
     nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   ingressClassName: nginx

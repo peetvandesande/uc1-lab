@@ -1,8 +1,17 @@
 # Modules 15/16 - certificates and ingress
 
-cert-manager issues from `uc1-ca`, a self-signed CA kept in the
-`uc1-ca` secret (cert-manager namespace). ingress-nginx answers on
-192.168.39.100 = `ingress.uc1.home`; every service name is a CNAME to it:
+Two issuers:
+
+- **step-ca** (the default for ingresses): ACME against the homelab CA on
+  pistis (`https://pistis.home:8443/acme/acme/directory`, HTTP-01 through
+  ingress-nginx). Certificates chain to the G2 root the LAN already
+  trusts, with Let's Encrypt-shaped lifetimes renewed by cert-manager.
+- **uc1-ca**: the lab's own self-signed CA, kept for what ACME cannot
+  sign - Hubble's internal mTLS SANs - and as the fallback issuer if
+  pistis is down.
+
+ingress-nginx answers on 192.168.39.100 = `ingress.uc1.home`; every
+service name is a CNAME to it:
 
 | Name | What |
 |---|---|
@@ -13,15 +22,14 @@ cert-manager issues from `uc1-ca`, a self-signed CA kept in the
 | hubble.uc1.home | add an Ingress for hubble-ui as an exercise |
 | registry.uc1.home | the image registry (plain HTTP, .101, no ingress) |
 
-Trust the CA locally (macOS):
+Devices that trust the homelab's G2 root (most of the LAN) get a green
+padlock on every lab ingress with no extra steps. A device that does not:
+install the root from `../homelab/ca/rootca/certs/root.crt`, or live with
+`curl -k`.
 
-```sh
-kubectl -n cert-manager get secret uc1-ca -o jsonpath='{.data.tls\.crt}' | base64 -d > /tmp/uc1-ca.crt
-sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain /tmp/uc1-ca.crt
-```
-
-or live with `curl -k` and browser warnings - the lab does not mind.
-
-An alternative worth doing once: point cert-manager at the homelab's
-step-ca (pistis) over ACME instead of the self-signed root, and the lab's
-certificates chain to the same CA as everything else on the LAN.
+Worth watching once: `kubectl -n monitoring describe certificate` during
+issuance - the ACME order, the HTTP-01 challenge appearing as a temporary
+ingress, pistis fetching it over the routed lab network, the secret
+landing. That path (DNS via Pythia, routing via lenora, solver via
+ingress-nginx) is a four-system integration and each is a place it can
+fail - which is what makes it good drill material.

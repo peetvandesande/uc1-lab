@@ -5,3 +5,4 @@ resources:
   - source.yaml
   - release.yaml
   - issuer.yaml
+  - step-ca-issuer.yaml

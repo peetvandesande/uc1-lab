@@ -48,6 +48,20 @@ operator:
   replicas: 1
 
 hubble:
+  # Hubble's mTLS certificates from cert-manager instead of Helm-generated
+  # ones. The CA issuer (uc1-ca) signs them, not step-ca: their SANs
+  # (*.hubble-grpc.cilium.io) are not HTTP-01 provable, so ACME cannot.
+  # This makes the HelmRelease depend on cert-manager - the Flux order is
+  # 15 before 10, which only works because scripts/bootstrap-cluster.sh
+  # installs the CNI first with --set hubble.tls.auto.method=helm.
+  tls:
+    auto:
+      enabled: true
+      method: certmanagerIssuer
+      certManagerIssuerRef:
+        group: cert-manager.io
+        kind: ClusterIssuer
+        name: uc1-ca
   relay:
     enabled: true
   ui:
