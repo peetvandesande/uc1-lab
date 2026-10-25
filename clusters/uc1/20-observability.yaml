@@ -1,0 +1,20 @@
+# kube-prometheus-stack, Loki, Alloy, dashboards, alerts
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: 20-observability
+  namespace: flux-system
+spec:
+  interval: 10m
+  retryInterval: 1m
+  timeout: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./modules/20-observability
+  prune: true
+  wait: true
+  dependsOn:
+    - name: 10-cilium
+    - name: 12-storage
+    - name: 15-cert-manager

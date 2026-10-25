@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gpu-operator
+  labels:
+    # the validator and plugin pods run privileged
+    pod-security.kubernetes.io/enforce: privileged

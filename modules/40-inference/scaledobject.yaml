@@ -1,0 +1,21 @@
+# Scale vLLM on its own queue: more than 5 waiting requests sustained means
+# another replica. This is the autoscaling signal that matters for LLM
+# serving - CPU utilisation is always high while generating, so the classic
+# HPA signal says nothing.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: vllm
+  namespace: inference
+spec:
+  scaleTargetRef:
+    name: vllm
+  minReplicaCount: 1
+  maxReplicaCount: 3
+  cooldownPeriod: 300
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://kube-prometheus-stack-prometheus.monitoring:9090
+        query: sum(vllm:num_requests_waiting)
+        threshold: "5"

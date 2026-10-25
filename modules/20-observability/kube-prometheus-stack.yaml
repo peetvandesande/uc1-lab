@@ -1,0 +1,132 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+  namespace: monitoring
+spec:
+  interval: 30m
+  timeout: 15m
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      version: 92.13.1
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+  values:
+    # Talos binds the control plane components to all addresses (see the
+    # cluster patch in talos.tf), so they are scraped on the node addresses.
+    # kube-proxy does not exist: Cilium replaced it.
+    kubeControllerManager:
+      endpoints: &cps [192.168.39.11, 192.168.39.12, 192.168.39.13]
+    kubeScheduler:
+      endpoints: *cps
+    kubeEtcd:
+      endpoints: *cps
+      service:
+        port: 2381
+        targetPort: 2381
+    kubeProxy:
+      enabled: false
+
+    prometheus:
+      prometheusSpec:
+        retention: 7d
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: local-path
+              resources:
+                requests:
+                  storage: 20Gi
+        # Pick up every ServiceMonitor, PodMonitor and PrometheusRule in the
+        # cluster, not only the chart's own
+        serviceMonitorSelectorNilUsesHelmValues: false
+        podMonitorSelectorNilUsesHelmValues: false
+        ruleSelectorNilUsesHelmValues: false
+        probeSelectorNilUsesHelmValues: false
+      ingress:
+        enabled: true
+        ingressClassName: nginx
+        annotations:
+          cert-manager.io/cluster-issuer: uc1-ca
+        hosts: [prometheus.uc1.home]
+        paths: [/]
+        tls:
+          - secretName: prometheus-tls
+            hosts: [prometheus.uc1.home]
+
+    alertmanager:
+      config:
+        route:
+          receiver: "default"
+          group_by: [namespace, alertname]
+        receivers:
+          # No delivery by default: alerts are read in the Alertmanager and
+          # Grafana UIs. For mail through the homelab's relay, see the
+          # commented receiver and docs/20-observability.md.
+          - name: "default"
+          # - name: "mail"
+          #   email_configs:
+          #     - to: alerts@uc1.home
+          #       from: alertmanager@uc1.home
+          #       smarthost: 192.168.8.57:25
+          #       require_tls: false
+      ingress:
+        enabled: true
+        ingressClassName: nginx
+        annotations:
+          cert-manager.io/cluster-issuer: uc1-ca
+        hosts: [alertmanager.uc1.home]
+        paths: [/]
+        tls:
+          - secretName: alertmanager-tls
+            hosts: [alertmanager.uc1.home]
+
+    grafana:
+      adminPassword: uc1-lab
+      ingress:
+        enabled: true
+        ingressClassName: nginx
+        annotations:
+          cert-manager.io/cluster-issuer: uc1-ca
+        hosts: [grafana.uc1.home]
+        tls:
+          - secretName: grafana-tls
+            hosts: [grafana.uc1.home]
+      additionalDataSources:
+        - name: Loki
+          type: loki
+          url: http://loki:3100
+          access: proxy
+      # The sidecar provisions any ConfigMap labelled grafana_dashboard
+      # (dashboards/); these come from grafana.com
+      dashboardProviders:
+        dashboardproviders.yaml:
+          apiVersion: 1
+          providers:
+            - name: imported
+              folder: uc1
+              type: file
+              options:
+                path: /var/lib/grafana/dashboards/imported
+      dashboards:
+        imported:
+          dcgm:
+            gnetId: 12239
+            revision: 2
+            datasource: Prometheus
+          cilium:
+            gnetId: 21462
+            revision: 1
+            datasource: Prometheus
+
+    prometheusOperator:
+      admissionWebhooks:
+        certManager:
+          enabled: true
+
+    prometheus-node-exporter:
+      prometheus:
+        monitor:
+          enabled: true

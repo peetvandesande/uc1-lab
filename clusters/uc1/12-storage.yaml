@@ -1,0 +1,16 @@
+# local-path-provisioner, the default StorageClass
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: 12-storage
+  namespace: flux-system
+spec:
+  interval: 10m
+  retryInterval: 1m
+  timeout: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./modules/12-storage
+  prune: true
+  wait: true

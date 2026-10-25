@@ -1,0 +1,58 @@
+# The lab's own alerts, next to the defaults kube-prometheus-stack ships.
+# Each one is exercised by a drill; see drills/.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: uc1-platform
+  namespace: monitoring
+spec:
+  groups:
+    - name: uc1-inference
+      rules:
+        - alert: VllmRequestQueueHigh
+          expr: sum(vllm:num_requests_waiting) > 5
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: vLLM request queue is backing up
+            description: >-
+              {{ $value }} requests are waiting; latency is climbing.
+              Check replica count, KEDA scaling and worker CPU.
+        - alert: InferenceEndpointDown
+          expr: up{job=~".*vllm.*"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: the vLLM endpoint stopped answering its scrape
+            description: kubectl -n inference get pods; check events and logs.
+    - name: uc1-gpu
+      rules:
+        - alert: GpuExporterAbsent
+          expr: absent(DCGM_FI_DEV_GPU_UTIL)
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: no GPU metrics are coming in
+            description: >-
+              DCGM stopped reporting - the exporter, the device plugin or the
+              driver on the GPU worker is unhappy.
+        - alert: GpuTemperatureHigh
+          expr: DCGM_FI_DEV_GPU_TEMP > 90
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "GPU at {{ $value }}°C"
+    - name: uc1-flux
+      rules:
+        - alert: FluxReconciliationErrors
+          expr: sum by (controller) (rate(controller_runtime_reconcile_errors_total{namespace="flux-system"}[5m])) > 0.1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Flux controller {{ $labels.controller }} keeps failing to reconcile"
+            description: flux get all -A; look for the failing reconciliation.

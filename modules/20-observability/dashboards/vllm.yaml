@@ -1,0 +1,238 @@
+# The vLLM dashboard, provisioned by the Grafana sidecar
+# (label grafana_dashboard). The metric names are the engine's own, so the
+# same dashboard serves the CPU backend and a GPU deployment alike.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-vllm
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  vllm.json: |
+    {
+     "title": "vLLM",
+     "uid": "uc1-vllm",
+     "tags": [
+      "uc1",
+      "inference"
+     ],
+     "timezone": "browser",
+     "schemaVersion": 39,
+     "refresh": "30s",
+     "time": {
+      "from": "now-1h",
+      "to": "now"
+     },
+     "panels": [
+      {
+       "id": 1,
+       "type": "timeseries",
+       "title": "Requests running / waiting",
+       "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "fieldConfig": {
+        "defaults": {
+         "custom": {
+          "lineWidth": 2,
+          "fillOpacity": 10
+         }
+        },
+        "overrides": []
+       },
+       "targets": [
+        {
+         "expr": "sum(vllm:num_requests_running)",
+         "legendFormat": "running",
+         "refId": "A"
+        },
+        {
+         "expr": "sum(vllm:num_requests_waiting)",
+         "legendFormat": "waiting",
+         "refId": "B"
+        }
+       ]
+      },
+      {
+       "id": 2,
+       "type": "timeseries",
+       "title": "Token throughput",
+       "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "fieldConfig": {
+        "defaults": {
+         "custom": {
+          "lineWidth": 2,
+          "fillOpacity": 10
+         }
+        },
+        "overrides": []
+       },
+       "targets": [
+        {
+         "expr": "sum(rate(vllm:prompt_tokens_total[2m]))",
+         "legendFormat": "prompt tok/s",
+         "refId": "A"
+        },
+        {
+         "expr": "sum(rate(vllm:generation_tokens_total[2m]))",
+         "legendFormat": "generated tok/s",
+         "refId": "B"
+        }
+       ]
+      },
+      {
+       "id": 3,
+       "type": "timeseries",
+       "title": "End-to-end request latency",
+       "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "fieldConfig": {
+        "defaults": {
+         "custom": {
+          "lineWidth": 2,
+          "fillOpacity": 10
+         },
+         "unit": "s"
+        },
+        "overrides": []
+       },
+       "targets": [
+        {
+         "expr": "histogram_quantile(0.5, sum by (le) (rate(vllm:e2e_request_latency_seconds_bucket[5m])))",
+         "legendFormat": "p50",
+         "refId": "A"
+        },
+        {
+         "expr": "histogram_quantile(0.95, sum by (le) (rate(vllm:e2e_request_latency_seconds_bucket[5m])))",
+         "legendFormat": "p95",
+         "refId": "B"
+        }
+       ]
+      },
+      {
+       "id": 4,
+       "type": "timeseries",
+       "title": "Time to first token",
+       "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "fieldConfig": {
+        "defaults": {
+         "custom": {
+          "lineWidth": 2,
+          "fillOpacity": 10
+         },
+         "unit": "s"
+        },
+        "overrides": []
+       },
+       "targets": [
+        {
+         "expr": "histogram_quantile(0.95, sum by (le) (rate(vllm:time_to_first_token_seconds_bucket[5m])))",
+         "legendFormat": "p95",
+         "refId": "A"
+        }
+       ]
+      },
+      {
+       "id": 5,
+       "type": "timeseries",
+       "title": "KV-cache usage",
+       "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "fieldConfig": {
+        "defaults": {
+         "custom": {
+          "lineWidth": 2,
+          "fillOpacity": 10
+         },
+         "unit": "percentunit"
+        },
+        "overrides": []
+       },
+       "targets": [
+        {
+         "expr": "vllm:gpu_cache_usage_perc",
+         "legendFormat": "gpu {{pod}}",
+         "refId": "A"
+        },
+        {
+         "expr": "vllm:cpu_cache_usage_perc",
+         "legendFormat": "cpu {{pod}}",
+         "refId": "B"
+        }
+       ]
+      },
+      {
+       "id": 6,
+       "type": "timeseries",
+       "title": "Request rate by outcome",
+       "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "fieldConfig": {
+        "defaults": {
+         "custom": {
+          "lineWidth": 2,
+          "fillOpacity": 10
+         }
+        },
+        "overrides": []
+       },
+       "targets": [
+        {
+         "expr": "sum by (finished_reason) (rate(vllm:request_success_total[5m]))",
+         "legendFormat": "{{finished_reason}}",
+         "refId": "A"
+        }
+       ]
+      }
+     ]
+    }

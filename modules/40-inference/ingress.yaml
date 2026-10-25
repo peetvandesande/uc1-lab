@@ -1,0 +1,40 @@
+# llm.uc1.home is the lab's "product" endpoint: vLLM at /, the GPU engine at
+# /ollama, the mock NIM at /nim.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: llm
+  namespace: inference
+  annotations:
+    cert-manager.io/cluster-issuer: uc1-ca
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [llm.uc1.home]
+      secretName: llm-tls
+  rules:
+    - host: llm.uc1.home
+      http:
+        paths:
+          - path: /ollama(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: ollama
+                port:
+                  name: http
+          - path: /nim(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: mock-nim
+                port:
+                  name: http
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: vllm
+                port:
+                  name: http

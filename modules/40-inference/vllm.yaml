@@ -1,0 +1,97 @@
+# vLLM's CPU backend - a real vLLM, the real OpenAI-compatible API and the
+# real vllm:* metrics, on the hardware this host has. The Xeon 6262V has
+# AVX-512, which the pre-built CPU image requires. The P2200 cannot run vLLM
+# (compute 6.1 < 7.0), which is why the GPU serves through Ollama instead.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm
+  namespace: inference
+  labels:
+    app.kubernetes.io/name: vllm
+    uc1.home/data-residency: eu
+spec:
+  # no replicas field: KEDA owns the count (ScaledObject); a value here
+  # would make every Flux reconcile fight the autoscaler
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vllm
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vllm
+        uc1.home/data-residency: eu
+    spec:
+      containers:
+        - name: vllm
+          image: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.29.0
+          args:
+            - --model=Qwen/Qwen2.5-0.5B-Instruct
+            - --max-model-len=2048
+            - --dtype=bfloat16
+          env:
+            - name: VLLM_CPU_KVCACHE_SPACE
+              value: "4"
+          ports:
+            - name: http
+              containerPort: 8000
+          resources:
+            requests:
+              cpu: "4"
+              memory: 8Gi
+            limits:
+              cpu: "8"
+              memory: 12Gi
+          # The model is fetched from Hugging Face on the first start;
+          # readiness holds the pod out of the Service until it is loaded
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 600
+            periodSeconds: 30
+          volumeMounts:
+            - name: cache
+              mountPath: /root/.cache/huggingface
+      volumes:
+        - name: cache
+          emptyDir:
+            sizeLimit: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm
+  namespace: inference
+  labels:
+    app.kubernetes.io/name: vllm
+spec:
+  selector:
+    app.kubernetes.io/name: vllm
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: vllm
+  namespace: inference
+  labels:
+    app.kubernetes.io/name: vllm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vllm
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

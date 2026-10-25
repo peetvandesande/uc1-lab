@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: keda
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: kedacore
+  namespace: keda
+spec:
+  interval: 12h
+  url: https://kedacore.github.io/charts
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: keda
+  namespace: keda
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: keda
+      version: 2.21.0
+      sourceRef:
+        kind: HelmRepository
+        name: kedacore

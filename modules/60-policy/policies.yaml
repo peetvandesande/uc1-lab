@@ -1,0 +1,74 @@
+# The platform's rules for product workloads, enforced where product
+# workloads run (the inference namespace) and audited everywhere else.
+# Data residency is a label contract: every workload must say where its data
+# may live, and the namespace carries the same label for the drills that
+# check it.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+spec:
+  background: true
+  rules:
+    - name: require-pinned-tag
+      match:
+        any:
+          - resources:
+              kinds: [Deployment, StatefulSet, DaemonSet]
+              namespaces: [inference]
+      validate:
+        failureAction: Enforce
+        message: "pin an image tag - :latest deploys are not reproducible"
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                  - image: "!*:latest & *:*"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-resource-requests
+spec:
+  background: true
+  rules:
+    - name: require-requests
+      match:
+        any:
+          - resources:
+              kinds: [Deployment, StatefulSet]
+              namespaces: [inference]
+      validate:
+        failureAction: Enforce
+        message: "every container needs CPU and memory requests - the scheduler cannot place what it cannot size"
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                  - resources:
+                      requests:
+                        cpu: "?*"
+                        memory: "?*"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-data-residency
+spec:
+  background: true
+  rules:
+    - name: require-residency-label
+      match:
+        any:
+          - resources:
+              kinds: [Deployment, StatefulSet]
+              namespaces: [inference]
+      validate:
+        failureAction: Enforce
+        message: "label workloads with uc1.home/data-residency (eu) - the platform's data residency contract"
+        pattern:
+          metadata:
+            labels:
+              uc1.home/data-residency: eu

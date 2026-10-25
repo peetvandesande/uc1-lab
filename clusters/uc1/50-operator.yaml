@@ -1,0 +1,19 @@
+# the image registry the ModelDeployment operator pushes to
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: 50-operator
+  namespace: flux-system
+spec:
+  interval: 10m
+  retryInterval: 1m
+  timeout: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./modules/50-operator
+  prune: true
+  wait: true
+  dependsOn:
+    - name: 10-cilium
+    - name: 12-storage

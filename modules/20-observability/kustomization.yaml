@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - sources.yaml
+  - kube-prometheus-stack.yaml
+  - loki.yaml
+  - alloy.yaml
+  - alert-rules.yaml
+  - podmonitor-flux.yaml
+  - dashboards/vllm.yaml
