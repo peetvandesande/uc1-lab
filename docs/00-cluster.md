@@ -45,3 +45,18 @@ ansible-playbook ansible/teardown.yml      # zone, DNS, pool, token, local state
 ```
 
 Rebuilding from nothing is itself a drill; time yourself.
+
+## After any destroy: bootstrap again before apply
+
+Destroying a VM purges its `/vms/<id>` ACL, and the per-VMID grants are
+what let the token create: a new VM joins the pool only at the *end* of
+creation, so mid-create permission checks run against `/vms/<id>`, not the
+pool. A replace cycle (tainted resource, changed VMID, partial apply)
+therefore fails with `403 Permission check failed (/vms/<id>, ...)` until
+
+```sh
+ansible-playbook ansible/bootstrap.yml     # re-grants the VMID ACLs, idempotent
+```
+
+has run again. Harmless to run any time; make it a habit between destroy
+and apply.
