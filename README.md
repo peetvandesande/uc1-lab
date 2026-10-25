@@ -47,6 +47,7 @@ platform is green, start pulling it apart: `drills/README.md`.
 | | |
 |---|---|
 | docs/00-cluster.md | the cluster, talosctl, teardown |
+| docs/operations.md | running it: stop/start, updates, upgrades, troubleshooting |
 | docs/15-ingress.md | the CA, the names |
 | docs/20-observability.md | dashboards, alerts |
 | docs/30-gpu.md | the passthrough chain, and how to give the card back |
