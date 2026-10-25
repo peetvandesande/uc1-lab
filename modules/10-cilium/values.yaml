@@ -4,6 +4,17 @@
 ipam:
   mode: kubernetes
 
+# Native routing, not VXLAN: every node sits on the same L2 (uc1net), so
+# nodes route each other's pod CIDRs directly. The tunnel cost more than
+# overhead here - a full-size frame arriving from the LAN for a
+# LoadBalancer address could not be VXLAN-forwarded to a backend on
+# another node (+50 bytes > MTU), which broke exactly and only bulk
+# ingress like registry pushes, and only when the L2 lease holder and the
+# backend pod were on different nodes.
+routingMode: native
+autoDirectNodeRoutes: true
+ipv4NativeRoutingCIDR: 10.244.0.0/16
+
 kubeProxyReplacement: true
 k8sServiceHost: localhost
 k8sServicePort: 7445
