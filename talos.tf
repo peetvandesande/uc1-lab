@@ -55,18 +55,39 @@ locals {
     }
   }
 
-  # Cilium replaces both the default CNI and kube-proxy (module 10)
+  # Cilium replaces both the default CNI and kube-proxy (module 10), and
+  # the control plane components bind their metrics to the node address so
+  # kube-prometheus-stack (module 20) can scrape them
   cni_patch = {
     cluster = {
       network = {
         cni = { name = "none" }
       }
       proxy = { disabled = true }
+      etcd = {
+        extraArgs = {
+          "listen-metrics-urls" = "http://0.0.0.0:2381"
+        }
+      }
+      controllerManager = {
+        extraArgs = {
+          "bind-address" = "0.0.0.0"
+        }
+      }
+      scheduler = {
+        extraArgs = {
+          "bind-address" = "0.0.0.0"
+        }
+      }
     }
   }
 
   # The GPU worker: load the proprietary driver the -lts extension ships,
-  # label the node, and taint it so only GPU workloads land there
+  # label the node, and taint it so only GPU workloads land there. The
+  # taint goes through kubelet's registerWithTaints: NodeRestriction
+  # forbids a node modifying its own taints after registration, and that
+  # one refusal makes Talos's NodeApplyController fail its whole batch -
+  # machine.nodeTaints on a worker silently costs you the labels too.
   gpu_patch = {
     machine = {
       kernel = {
@@ -80,8 +101,12 @@ locals {
       nodeLabels = {
         "uc1.home/gpu" = "true"
       }
-      nodeTaints = {
-        "nvidia.com/gpu" = "present:NoSchedule"
+      kubelet = {
+        extraConfig = {
+          registerWithTaints = [
+            { key = "nvidia.com/gpu", value = "present", effect = "NoSchedule" },
+          ]
+        }
       }
     }
   }

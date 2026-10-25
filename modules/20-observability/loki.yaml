@@ -55,3 +55,6 @@ spec:
       enabled: false
     gateway:
       enabled: false
+    monitoring:
+      serviceMonitor:
+        enabled: true
