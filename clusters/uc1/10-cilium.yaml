@@ -19,4 +19,4 @@ spec:
   prune: true
   wait: true
   dependsOn:
-    - name: 15-cert-manager
+    - name: 17-issuers

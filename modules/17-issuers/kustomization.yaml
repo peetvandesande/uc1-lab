@@ -1,0 +1,9 @@
+# The issuers live apart from the cert-manager HelmRelease on purpose: a
+# Flux Kustomization dry-runs everything it holds before applying any of
+# it, so a ClusterIssuer cannot share a Kustomization with the chart that
+# installs its CRD. This one dependsOn 15-cert-manager.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - issuer.yaml
+  - step-ca-issuer.yaml

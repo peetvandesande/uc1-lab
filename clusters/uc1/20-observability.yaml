@@ -17,4 +17,4 @@ spec:
   dependsOn:
     - name: 10-cilium
     - name: 12-storage
-    - name: 15-cert-manager
+    - name: 17-issuers

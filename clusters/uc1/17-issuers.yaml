@@ -1,0 +1,20 @@
+# The lab's issuers: step-ca (ACME, ingresses) and uc1-ca (internal/
+# fallback). Separate from 15: their CRDs only exist once the chart there
+# is installed, and a Kustomization dry-runs as a unit.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: 17-issuers
+  namespace: flux-system
+spec:
+  interval: 10m
+  retryInterval: 1m
+  timeout: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./modules/17-issuers
+  prune: true
+  wait: true
+  dependsOn:
+    - name: 15-cert-manager
