@@ -193,14 +193,26 @@ func (r *ModelDeploymentReconciler) reconcileDeployment(ctx context.Context, md 
 		}}
 		deploy.Spec.Template.Labels = labels(md)
 		deploy.Spec.Template.Spec.Containers = []corev1.Container{r.container(md)}
-		deploy.Spec.Template.Spec.Volumes = []corev1.Volume{{
-			Name: "cache",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{
-					SizeLimit: resource.NewQuantity(5<<30, resource.BinarySI),
+		deploy.Spec.Template.Spec.Volumes = []corev1.Volume{
+			{
+				Name: "cache",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{
+						SizeLimit: resource.NewQuantity(5<<30, resource.BinarySI),
+					},
 				},
 			},
-		}}
+			{
+				// vLLM's IPC ring buffer outgrows the default 64Mi /dev/shm
+				Name: "shm",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{
+						Medium:    corev1.StorageMediumMemory,
+						SizeLimit: resource.NewQuantity(1<<30, resource.BinarySI),
+					},
+				},
+			},
+		}
 		return controllerutil.SetControllerReference(md, deploy, r.Scheme)
 	})
 	return deploy, err
@@ -240,7 +252,10 @@ func (r *ModelDeploymentReconciler) container(md *servingv1alpha1.ModelDeploymen
 			"--dtype=bfloat16",
 		}
 		c.Env = []corev1.EnvVar{{Name: "VLLM_CPU_KVCACHE_SPACE", Value: "4"}}
-		c.VolumeMounts = []corev1.VolumeMount{{Name: "cache", MountPath: "/root/.cache/huggingface"}}
+		c.VolumeMounts = []corev1.VolumeMount{
+			{Name: "cache", MountPath: "/root/.cache/huggingface"},
+			{Name: "shm", MountPath: "/dev/shm"},
+		}
 		if md.Spec.Resources == nil {
 			c.Resources = corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{

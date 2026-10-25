@@ -33,6 +33,11 @@ spec:
       prometheusSpec:
         retention: 7d
         storageSpec:
+          # local-path PVs are hostPath: kubelet applies no fsGroup, and the
+          # operator's default subPath mount creates a root-owned 0755 dir
+          # Prometheus (uid 1000) cannot write. Mounting the PV root (0777,
+          # from the provisioner's setup script) instead
+          disableMountSubPath: true
           volumeClaimTemplate:
             spec:
               storageClassName: local-path

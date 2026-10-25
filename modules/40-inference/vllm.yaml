@@ -60,10 +60,18 @@ spec:
           volumeMounts:
             - name: cache
               mountPath: /root/.cache/huggingface
+            # the engine's IPC ring buffer wants more than the 64Mi
+            # Kubernetes gives /dev/shm by default
+            - name: shm
+              mountPath: /dev/shm
       volumes:
         - name: cache
           emptyDir:
             sizeLimit: 5Gi
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
 ---
 apiVersion: v1
 kind: Service
