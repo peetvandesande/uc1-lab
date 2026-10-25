@@ -1,0 +1,75 @@
+# Tier 3: PostgreSQL. A StatefulSet with a volumeClaimTemplate - the pod
+# owns its storage identity across restarts. local-path pins the volume to
+# one node: fine for a demo, a conscious decision anywhere else.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db
+  namespace: demo
+  labels:
+    uc1.home/data-residency: eu
+stringData:
+  POSTGRES_DB: visits
+  POSTGRES_USER: demo
+  POSTGRES_PASSWORD: demo-only-not-a-real-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: demo
+spec:
+  selector:
+    app.kubernetes.io/name: db
+  ports:
+    - name: postgres
+      port: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+  namespace: demo
+  labels:
+    app.kubernetes.io/name: db
+    uc1.home/data-residency: eu
+spec:
+  serviceName: db
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: db}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: db
+        uc1.home/data-residency: eu
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          envFrom:
+            - secretRef: {name: db}
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - name: postgres
+              containerPort: 5432
+          readinessProbe:
+            exec:
+              command: [pg_isready, -U, demo, -d, visits]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 250m, memory: 256Mi}
+            limits: {cpu: "1", memory: 512Mi}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests: {storage: 1Gi}

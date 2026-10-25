@@ -54,6 +54,7 @@ platform is green, start pulling it apart: `drills/README.md`.
 | docs/40-inference.md | vLLM / Ollama / NIM |
 | docs/50-operator.md | build, deploy, exercises |
 | docs/60-policy.md | Kyverno, NetworkPolicy, PSA |
+| docs/80-tenants.md | onboarding a tenant; a three-tier app end to end |
 | docs/90-upgrades.md | Talos and Kubernetes rolling upgrades |
 | docs/jd-map.md | which part of the lab trains which JD bullet |
 

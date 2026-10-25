@@ -1,8 +1,8 @@
-# The platform's rules for product workloads, enforced where product
-# workloads run (the inference namespace) and audited everywhere else.
-# Data residency is a label contract: every workload must say where its data
-# may live, and the namespace carries the same label for the drills that
-# check it.
+# The platform's rules for product workloads, enforced in every namespace
+# that carries the uc1.home/tenant label (the platform's own inference
+# namespace wears it too) and audited elsewhere. Data residency is a label
+# contract: every workload must say where its data may live, and the
+# namespace carries the same label for the drills that check it.
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -15,7 +15,9 @@ spec:
         any:
           - resources:
               kinds: [Deployment, StatefulSet, DaemonSet]
-              namespaces: [inference]
+              namespaceSelector:
+                matchExpressions:
+                  - {key: uc1.home/tenant, operator: Exists}
       validate:
         failureAction: Enforce
         message: "pin an image tag - :latest deploys are not reproducible"
@@ -38,7 +40,9 @@ spec:
         any:
           - resources:
               kinds: [Deployment, StatefulSet]
-              namespaces: [inference]
+              namespaceSelector:
+                matchExpressions:
+                  - {key: uc1.home/tenant, operator: Exists}
       validate:
         failureAction: Enforce
         message: "every container needs CPU and memory requests - the scheduler cannot place what it cannot size"
@@ -64,7 +68,9 @@ spec:
         any:
           - resources:
               kinds: [Deployment, StatefulSet]
-              namespaces: [inference]
+              namespaceSelector:
+                matchExpressions:
+                  - {key: uc1.home/tenant, operator: Exists}
       validate:
         failureAction: Enforce
         message: "label workloads with uc1.home/data-residency (eu) - the platform's data residency contract"

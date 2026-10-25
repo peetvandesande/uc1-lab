@@ -1,0 +1,12 @@
+# A tenant is a namespace wearing the platform's contract: PSA posture,
+# the tenant label (which is what scopes the Kyverno policies here) and
+# the data-residency statement.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo
+  labels:
+    uc1.home/tenant: demo
+    uc1.home/data-residency: eu
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted

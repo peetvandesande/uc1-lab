@@ -1,0 +1,26 @@
+# The tenant's front door: demo.uc1.home, certificate from the homelab CA.
+# Only the web tier is exposed; the api and db are reachable solely along
+# the arrows the network policies draw.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demo
+  namespace: demo
+  annotations:
+    cert-manager.io/cluster-issuer: step-ca
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [demo.uc1.home]
+      secretName: demo-tls
+  rules:
+    - host: demo.uc1.home
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  name: http

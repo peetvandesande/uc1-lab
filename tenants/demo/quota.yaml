@@ -1,0 +1,34 @@
+# The tenant's slice of the cluster. Requests are what the scheduler
+# reserves, limits what the kernel enforces; the quota caps both so one
+# tenant cannot starve the rest.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: demo
+  namespace: demo
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "4"
+    limits.memory: 8Gi
+    pods: "20"
+    services.loadbalancers: "0"   # tenants publish through the ingress, not raw LB addresses
+    requests.storage: 10Gi
+---
+# Defaults for pods that state nothing - although the require-resource-
+# requests policy means tenant workloads always state their own.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: demo
+  namespace: demo
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 50m
+        memory: 64Mi
+      default:
+        cpu: 250m
+        memory: 256Mi

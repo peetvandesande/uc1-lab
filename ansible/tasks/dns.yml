@@ -43,7 +43,7 @@
           - { name: "api.{{ domain }}", type: A, records: ["{{ net }}.{{ vip }}"] }
           - { name: "ingress.{{ domain }}", type: A, records: ["{{ ingress }}"] }
           - { name: "registry.{{ domain }}", type: A, records: ["{{ registry }}"] }
-      {% for svc in ['grafana', 'prometheus', 'alertmanager', 'hubble', 'llm'] %}
+      {% for svc in ['grafana', 'prometheus', 'alertmanager', 'hubble', 'llm', 'demo'] %}
           - { name: "{{ svc }}.{{ domain }}", type: CNAME, records: ["ingress.{{ domain }}"] }
       {% endfor %}
       - name: "{{ rev }}"
