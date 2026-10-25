@@ -98,15 +98,17 @@ resource "proxmox_virtual_environment_vm" "node" {
 
   boot_order = ["scsi0"]
 
-  # The P2200, both functions (GPU + audio). Needs the vfio setup from
+  # The P2200, both functions (GPU + audio), as the cluster resource mapping
+  # the bootstrap created - the token may use a mapped device but only root
+  # may name a raw PCI address. Needs the vfio setup from
   # ansible/prepare-proxmox.yml and a host reboot first
   dynamic "hostpci" {
     for_each = each.value.gpu ? [1] : []
     content {
-      device = "hostpci0"
-      id     = local.net.gpu_pci_address
-      pcie   = true
-      rombar = true
+      device  = "hostpci0"
+      mapping = local.net.gpu_mapping
+      pcie    = true
+      rombar  = true
     }
   }
 

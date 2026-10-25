@@ -92,6 +92,16 @@
           {% for id in vmids %}{% set _ = o.append({'path': '/vms/' ~ id, 'roles': 'PVEVMAdmin'}) %}{% endfor %}
           {{ o | to_json }}
 
+    - name: Revoke the GPU mapping permission
+      ansible.builtin.command: pveum acl delete /mapping/pci/{{ lab_net.gpu_mapping }} --users {{ tf_user }} --roles PVEMappingUser
+      failed_when: false
+      changed_when: false
+
+    - name: Remove the GPU mapping
+      ansible.builtin.command: pvesh delete /cluster/mapping/pci/{{ lab_net.gpu_mapping }}
+      failed_when: false
+      changed_when: false
+
     - name: List the pools and users
       ansible.builtin.command: pveum {{ item }} list --output-format json
       loop: [pool, user]
