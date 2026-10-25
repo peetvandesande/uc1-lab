@@ -22,6 +22,10 @@ spec:
         app.kubernetes.io/name: vllm
         uc1.home/data-residency: eu
     spec:
+      # the Service is named vllm, so Kubernetes would inject
+      # VLLM_PORT=tcp://<clusterip>:8000 - a legacy Docker-links variable
+      # that vLLM reads as its own setting and refuses as a URI
+      enableServiceLinks: false
       containers:
         - name: vllm
           image: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.29.0

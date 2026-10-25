@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -188,6 +189,10 @@ func (r *ModelDeploymentReconciler) reconcileDeployment(ctx context.Context, md 
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
 		deploy.Labels = labels(md)
 		deploy.Spec.Replicas = md.Spec.Replicas
+		// The Service shares the CR's name: without this, Kubernetes
+		// injects <NAME>_PORT=tcp://... which vLLM misreads as its own
+		// VLLM_PORT setting (a CR named "vllm" would crash on it)
+		deploy.Spec.Template.Spec.EnableServiceLinks = ptr.To(false)
 		deploy.Spec.Selector = &metav1.LabelSelector{MatchLabels: map[string]string{
 			"app.kubernetes.io/name": md.Name,
 		}}
