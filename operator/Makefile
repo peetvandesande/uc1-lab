@@ -1,5 +1,8 @@
 # Image URL to use all building/pushing image targets
 IMG ?= registry.uc1.home/uc1-operator:v0.1.0
+# The lab's nodes are amd64; the workstation is not. Cross-compiled in the
+# builder stage, so no emulation is involved.
+TARGET_PLATFORM ?= linux/amd64
 # YEAR defines the year value used for substituting the YEAR placeholder in the boilerplate header.
 YEAR ?= $(shell date +%Y)
 
@@ -123,7 +126,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # make docker-build IMG=<img> BASE_IMAGE=docker.io/library/golang:1.26
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build $(if $(BASE_IMAGE),--build-arg BASE_IMAGE=$(BASE_IMAGE)) -t ${IMG} .
+	$(CONTAINER_TOOL) build --platform=$(TARGET_PLATFORM) $(if $(BASE_IMAGE),--build-arg BASE_IMAGE=$(BASE_IMAGE)) -t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.

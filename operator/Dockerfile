@@ -1,7 +1,10 @@
 # Build the manager binary
 # Override BASE_IMAGE to build from another registry, e.g. docker.io/library/golang:1.26
 ARG BASE_IMAGE=golang:1.26
-FROM ${BASE_IMAGE} AS builder
+# --platform=$BUILDPLATFORM: the builder always runs native (this
+# workstation is arm64) and Go cross-compiles via TARGETOS/TARGETARCH -
+# the cluster's nodes are amd64
+FROM --platform=$BUILDPLATFORM ${BASE_IMAGE} AS builder
 ARG TARGETOS
 ARG TARGETARCH
 
