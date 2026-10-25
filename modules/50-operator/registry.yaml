@@ -75,3 +75,12 @@ spec:
     - name: http
       port: 80
       targetPort: http
+    # Docker's insecure-registry flow probes HTTPS first and only falls
+    # back to HTTP when that attempt FAILS. Cilium silently drops traffic
+    # to ports an LB address does not expose - no RST - so the probe hung
+    # for its full timeout and pushes died. Pointing 443 at the plain-HTTP
+    # listener makes the TLS handshake fail in milliseconds and the
+    # fallback immediate.
+    - name: https-probe
+      port: 443
+      targetPort: http
