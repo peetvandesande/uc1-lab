@@ -15,6 +15,10 @@ locals {
   node_patch = {
     for name, node in local.nodes : name => {
       machine = {
+        # The Talos API cert carries the IPs and the bare hostname by
+        # default; the FQDN must be asked for, or talosctl by name fails
+        # TLS verification
+        certSANs = ["${name}.${local.net.domain}"]
         install = {
           disk  = "/dev/sda"
           image = node.gpu ? local.installer.gpu : local.installer.base
