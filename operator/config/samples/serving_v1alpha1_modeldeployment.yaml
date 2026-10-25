@@ -1,0 +1,10 @@
+# A product team's entire interaction with the serving platform.
+apiVersion: serving.uc1.home/v1alpha1
+kind: ModelDeployment
+metadata:
+  name: qwen-mock
+  namespace: inference
+spec:
+  model: Qwen/Qwen2.5-0.5B-Instruct
+  engine: mock # flip to vllm for the real thing (give it a worker's worth of CPU)
+  replicas: 2
