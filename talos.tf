@@ -87,6 +87,21 @@ locals {
   }
 }
 
+locals {
+  # The provider (0.12) appends a HostnameConfig document with "auto:
+  # stable" to every generated config, and Talos refuses that next to the
+  # v1alpha1 machine.network.hostname these patches set ("static hostname
+  # is already set in v1alpha1 config"). Patching the document instead
+  # merges hostname INTO auto: stable - also invalid - so the document is
+  # deleted and the legacy field, consistent with the rest of this config,
+  # names the node.
+  drop_hostname_doc = <<-EOT
+    apiVersion: v1alpha1
+    kind: HostnameConfig
+    $patch: delete
+  EOT
+}
+
 resource "talos_machine_secrets" "this" {
   talos_version = local.net.talos_version
 }
@@ -107,6 +122,7 @@ data "talos_machine_configuration" "node" {
     [
       yamlencode(local.node_patch[each.key]),
       yamlencode(local.registry_patch),
+      local.drop_hostname_doc,
     ],
     each.value.role == "controlplane" ? [yamlencode(local.cni_patch)] : [],
     each.value.gpu ? [yamlencode(local.gpu_patch)] : [],
