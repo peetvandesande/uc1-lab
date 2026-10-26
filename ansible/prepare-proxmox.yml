@@ -8,6 +8,10 @@
 #     still uses the card - and needs one reboot, which the playbook asks for
 #     rather than performs. Reverting is deleting the two uc1-vfio files,
 #     removing the cmdline additions and rebooting.
+#   - masks nvidia-devnodes.service and nvidia-persistenced.service, which
+#     fail without a host driver and would only trip the Grafana alerts
+#     (teardown leaves them masked; `systemctl unmask` them when the card
+#     goes back to the host)
 #
 # Usage (from the repository root):
 #   ansible-playbook ansible/prepare-proxmox.yml [-e proxmox_target=user@host]
@@ -33,6 +37,7 @@
     gpu: true
     cleanup_conflicts: false
     gpu_dev: "{{ lab_net.gpu_pci_address }}.0"
+    nvidia_units: [nvidia-devnodes.service, nvidia-persistenced.service]
   tasks:
     # SDN only enables forwarding on its own vnets; traffic from the LAN
     # arrives on the host's main bridge
@@ -143,6 +148,14 @@
             - proxmox-boot-tool refresh
           when: modprobe_conf is changed or modules_conf is changed or cmdline_conf is changed or conflicts_removed is changed
           changed_when: true
+
+        # With vfio-pci holding the card these units have nothing to start
+        # against and sit failed, which alerts
+        - name: Mask the host's nvidia units
+          ansible.builtin.systemd_service:
+            name: "{{ item }}"
+            masked: true
+          loop: "{{ nvidia_units }}"
 
         - name: Report
           ansible.builtin.debug:

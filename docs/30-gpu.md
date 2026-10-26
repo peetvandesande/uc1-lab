@@ -62,4 +62,7 @@ destroy), then on lenora delete `/etc/modprobe.d/uc1-vfio.conf` and
 `/etc/modules-load.d/uc1-vfio.conf`, remove ` intel_iommu=on iommu=pt`
 from `/etc/kernel/cmdline`, run `update-initramfs -u -k all &&
 proxmox-boot-tool refresh`, reboot. The nvidia driver claims the card
-again at boot.
+again at boot. prepare-proxmox.yml also masks `nvidia-devnodes.service` and
+`nvidia-persistenced.service` (they fail without a host driver and trip the
+Grafana alerts); teardown.yml leaves them masked, so `systemctl unmask` them
+by hand when giving the card back.
