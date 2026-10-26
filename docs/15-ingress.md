@@ -18,7 +18,7 @@ service name is a CNAME to it:
 | grafana.uc1.home | dashboards (admin / uc1-lab) | https://grafana.uc1.home |
 | prometheus.uc1.home | the Prometheus UI | https://prometheus.uc1.home |
 | alertmanager.uc1.home | alert state | https://alertmanager.uc1.home |
-| llm.uc1.home | vLLM; /ollama -> GPU engine; /nim -> mock NIM | https://llm.uc1.home (also /ollama, /nim) |
+| llm.uc1.home | vLLM; /ollama -> GPU engine; /nim -> mock NIM | https://llm.uc1.home/v1/models, https://llm.uc1.home/ollama/api/tags, https://llm.uc1.home/nim/v1/models |
 | hubble.uc1.home | add an Ingress for hubble-ui as an exercise | https://hubble.uc1.home (once you add the Ingress) |
 | registry.uc1.home | the image registry (plain HTTP, .101, no ingress) | http://registry.uc1.home |
 
