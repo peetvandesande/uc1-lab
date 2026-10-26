@@ -13,14 +13,14 @@ Two issuers:
 ingress-nginx answers on 192.168.39.100 = `ingress.uc1.home`; every
 service name is a CNAME to it:
 
-| Name | What |
-|---|---|
-| grafana.uc1.home | dashboards (admin / uc1-lab) |
-| prometheus.uc1.home | the Prometheus UI |
-| alertmanager.uc1.home | alert state |
-| llm.uc1.home | vLLM; /ollama -> GPU engine; /nim -> mock NIM |
-| hubble.uc1.home | add an Ingress for hubble-ui as an exercise |
-| registry.uc1.home | the image registry (plain HTTP, .101, no ingress) |
+| Name | What | URL |
+|---|---|---|
+| grafana.uc1.home | dashboards (admin / uc1-lab) | https://grafana.uc1.home |
+| prometheus.uc1.home | the Prometheus UI | https://prometheus.uc1.home |
+| alertmanager.uc1.home | alert state | https://alertmanager.uc1.home |
+| llm.uc1.home | vLLM; /ollama -> GPU engine; /nim -> mock NIM | https://llm.uc1.home (also /ollama, /nim) |
+| hubble.uc1.home | add an Ingress for hubble-ui as an exercise | https://hubble.uc1.home (once you add the Ingress) |
+| registry.uc1.home | the image registry (plain HTTP, .101, no ingress) | http://registry.uc1.home |
 
 Devices that trust the homelab's G2 root (most of the LAN) get a green
 padlock on every lab ingress with no extra steps. A device that does not:
