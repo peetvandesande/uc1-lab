@@ -58,7 +58,7 @@ resource "proxmox_virtual_environment_vm" "node" {
   description = "Talos ${each.value.role}${each.value.gpu ? " with the GPU" : ""}, managed by OpenTofu"
   tags        = ["uc1", "opentofu"]
 
-  on_boot         = true
+  on_boot         = false
   started         = true
   stop_on_destroy = true
 

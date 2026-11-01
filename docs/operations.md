@@ -70,11 +70,12 @@ touching the next. Two down = no quorum = drill 10.
 
 ### The Proxmox host
 
-Every VM has `onboot=1`, so a lenora reboot brings the lab back without
-ceremony - order is not guaranteed, but etcd re-elects and everything
-converges. Shut the lab down first anyway when the reboot is planned;
-"crashed" and "stopped" are different etcd recovery paths and the second
-one is boring, which is what you want.
+The VMs have `onboot=0`: a lenora reboot leaves the lab off, so it only
+takes RAM when you start it. Start all five together afterwards (order
+doesn't matter, etcd re-elects and everything converges). Shut the lab
+down first when the reboot is planned; "crashed" and "stopped" are
+different etcd recovery paths and the second one is boring, which is what
+you want.
 
 ### Stop vs teardown
 
